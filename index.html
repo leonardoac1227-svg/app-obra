@@ -92,24 +92,46 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
         // --- ELEMENTOS DOM ---
         const loadingView = document.getElementById('loading-view');
         const loadingText = document.getElementById('loading-text');
 
-        // --- CONFIGURAÇÃO E AUTENTICAÇÃO ---
-        const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // ====================================================================================
+        // CONFIGURAÇÃO DO FIREBASE - COLE A SUA CONFIGURAÇÃO AQUI
+        // Obtenha este objeto no seu projeto Firebase > Configurações do Projeto
+        // ====================================================================================
+        const firebaseConfig = {
+          apiKey: "AIzaSyASW18uGr7OcBy0E5Hntk1cRjIGTkB6hCE",
+          authDomain: "controle-de-obra-cedro.firebaseapp.com",
+          projectId: "controle-de-obra-cedro",
+          storageBucket: "controle-de-obra-cedro.firebasestorage.app",
+          messagingSenderId: "413066555990",
+          appId: "1:413066555990:web:841c61f9a8c3c6b12281f7",
+          measurementId: "G-8H7HN0S3F5"
+        };
+        // ====================================================================================
 
+        if (firebaseConfig.apiKey === "COLE_AQUI_SUA_API_KEY") {
+            loadingView.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg text-left">
+                <h3 class="font-bold">Configuração Pendente</h3>
+                <p>É necessário inserir as suas credenciais do Firebase no código para a aplicação funcionar.</p>
+                <ol class="list-decimal list-inside mt-2 text-sm">
+                    <li>Vá para a consola do Firebase do seu projeto.</li>
+                    <li>Clique no ícone de engrenagem (Configurações do Projeto).</li>
+                    <li>Na secção "As suas apps", copie o objeto 'firebaseConfig'.</li>
+                    <li>Cole o objeto no ficheiro 'index.html' onde indicado.</li>
+                </ol>
+            </div>`;
+            throw new Error("A configuração do Firebase não foi encontrada.");
+        }
+
+        const appId = firebaseConfig.appId;
         let app, db, auth;
-        let unsubscribeData = null; // Para desligar o listener do onSnapshot
+        let unsubscribeData = null; 
 
         try {
-            const firebaseConfig = JSON.parse(firebaseConfigString);
-            if (!firebaseConfig.apiKey) throw new Error("A chave da API Firebase está em falta.");
-
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
@@ -120,27 +142,17 @@
                     console.log("Utilizador autenticado:", user.uid);
                     setupRealtimeListener(user.uid);
                 } else {
-                    console.log("Utilizador não autenticado, a tentar login.");
-                    authenticateUser();
+                    console.log("Utilizador não autenticado, a tentar login anónimo.");
+                    signInAnonymously(auth).catch(error => {
+                        console.error("Erro de Autenticação Anónima:", error);
+                        showNotification(`Erro de Autenticação: ${error.code}`);
+                    });
                 }
             });
 
         } catch (error) {
             console.error("Erro de Inicialização:", error);
             showNotification(`Erro Crítico: ${error.message}`);
-        }
-
-        async function authenticateUser() {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Erro de Autenticação:", error);
-                showNotification(`Erro de Autenticação: ${error.code}`);
-            }
         }
 
         // --- ESTRUTURA DE DADOS E CONFIGURAÇÕES ---
@@ -177,12 +189,12 @@
             if (unsubscribeData) unsubscribeData();
             
             loadingText.textContent = "A carregar dados da obra...";
-            const projectDocRef = doc(db, `artifacts/${appId}/users/${userId}/cedroResidenceData/project`);
+            // O caminho agora é mais genérico para funcionar em qualquer projeto
+            const projectDocRef = doc(db, `controleDeObra/${userId}/cedroResidence/project`);
 
             unsubscribeData = onSnapshot(projectDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     try {
-                        // Deserializar os dados do campo JSON
                         currentData = JSON.parse(docSnap.data().project_json);
                         console.log("Dados recebidos em tempo real.");
                         loadingView.classList.remove('active');
@@ -224,7 +236,6 @@
                 });
             }
             try {
-                // Serializar os dados e guardar num único campo
                 await setDoc(docRef, { project_json: JSON.stringify(initialData) });
                 console.log("Estrutura inicializada com sucesso.");
             } catch (error) {
@@ -239,7 +250,6 @@
 
             const observationText = document.getElementById('observation-text').value;
             
-            // Atualizar a estrutura de dados local primeiro
             try {
                 currentData[currentBlockId][currentFloorId][currentApartmentId][currentServiceId].status = newStatus;
                 currentData[currentBlockId][currentFloorId][currentApartmentId][currentServiceId].notes = observationText;
@@ -249,10 +259,9 @@
                  return;
             }
 
-            const projectDocRef = doc(db, `artifacts/${appId}/users/${userId}/cedroResidenceData/project`);
+            const projectDocRef = doc(db, `controleDeObra/${userId}/cedroResidence/project`);
 
             try {
-                // Serializar e substituir o documento inteiro com os dados atualizados
                 await setDoc(projectDocRef, { project_json: JSON.stringify(currentData) });
                 closeModal();
                 showNotification("Serviço atualizado com sucesso!", false);
@@ -455,3 +464,4 @@
     </script>
 </body>
 </html>
+
